@@ -1,0 +1,4 @@
+wandb==0.10.9
+torch
+numpy
+pre-commit
