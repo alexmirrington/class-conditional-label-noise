@@ -1,6 +1,6 @@
 # Project specific
 specification.pdf
-data/*.npz
+code/data/*.npz
 code/results/local
 code/results/wandb
 
