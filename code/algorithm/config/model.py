@@ -2,7 +2,13 @@
 from enum import Enum
 
 
-class Model(Enum):
-    """Enum outlining available model variants."""
+class Backbone(Enum):
+    """Enum outlining available model backbones."""
 
-    CNN_FORWARD = "cnn_forward"
+    MLP = "mlp"
+
+
+class Estimator(Enum):
+    """Enum outlining available transition matrix estimators."""
+
+    FORWARD = "forward"

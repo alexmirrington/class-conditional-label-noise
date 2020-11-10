@@ -7,35 +7,40 @@ import sys
 from copy import copy
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import Callable, Iterable, List, Optional
 
+import torch
+import torch.nn.functional as F
 import wandb
-from config import Dataset, Model
+from config import Backbone, Dataset, Estimator
 from datasets import load_data
 from factories import ModelFactory
-from loggers import JSONLLogger, StreamLogger, WandbLogger
+from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from termcolor import colored
+from torch.utils.data import DataLoader
 
 
 def main(config: argparse.Namespace):
     """Train or evaluate a label-noise-robust model."""
+    # Get environment info
+    print(colored("environment:", attrs=["bold"]))
+    print(
+        f"device: {torch.cuda.get_device_name(config.device) if config.device != 'cpu' else 'cpu'}"
+    )
+
     # Load dataset
     print(colored("dataset:", attrs=["bold"]))
     print(config.dataset)
     # Determine dataset directory
-    train, val, test = load_data(
+    train_data, val_data, test_data = load_data(
         os.path.join(os.path.dirname(__file__), os.path.pardir, "data"),
         config.dataset,
         config.subset,
         config.seed,
     )
-    train_feats, train_labels = train
-    val_feats, val_labels = val
-    test_feats, test_labels = test
-
-    print(f"train: {train_feats.shape}")
-    print(f"val: {val_feats.shape}")
-    print(f"test: {test_feats.shape}")
+    print(f"train: {[tuple(t.shape) for t in train_data.tensors]}")
+    print(f"val: {[tuple(t.shape) for t in val_data.tensors]}")
+    print(f"test: {[tuple(t.shape) for t in test_data.tensors]}")
 
     # Create loggers
     loggers = [StreamLogger(), JSONLLogger(Path(config.results_dir) / f"{config.id}.jsonl")]
@@ -44,13 +49,65 @@ def main(config: argparse.Namespace):
 
     # Create model
     print(colored("model:", attrs=["bold"]))
-    model_factory = ModelFactory()
+    input_size = tuple(train_data.tensors[0].size()[1:])
+    class_count = len(set(train_data.tensors[1].tolist()))
+    model_factory = ModelFactory(input_size, class_count)
     model = model_factory.create(config)
-    print(config.model)
     print(model)
 
     # Train and evaluate model
-    # TODO
+    # TODO Try NLLLoss vs BCEWithLogitsLoss
+    print(colored("training:", attrs=["bold"]))
+    model = model.to(config.device)
+    train(
+        model,
+        DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
+        torch.optim.Adam(model.parameters(), lr=1e-3),
+        torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+        loggers,
+        config,
+    )
+
+
+def train(
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+    optimiser: torch.optim.Optimizer,
+    criterion: Optional[Callable[..., torch.Tensor]],
+    loggers: Iterable[Logger],
+    config: argparse.Namespace,
+):
+    """Train a model."""
+    class_count = len(set(dataloader.dataset.tensors[1].tolist()))
+    model.train()
+    for epoch in range(config.epochs):
+        print(f"{model.estimator.transitions=}")
+        for batch, (feats, labels) in enumerate(dataloader):
+            # Move data to GPU
+            feats = feats.to(config.device)
+            # Convert labels to one-hots if using BCEWithLogitsLoss
+            if isinstance(criterion, torch.nn.BCEWithLogitsLoss):
+                labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
+            labels = labels.to(config.device)
+            optimiser.zero_grad()
+            clean_posteriors, noisy_activations = model(feats)
+            loss = criterion(noisy_activations, labels)
+            # TODO Term to encourage transition matrix to be nonnegative
+            # loss += max(torch.norm(model.estimator.transitions, p=1), class_count)
+            # loss += torch.sum(F.relu(-model.estimator.transitions))
+            loss.backward()
+
+            optimiser.step()
+
+            if batch % config.log_step == config.log_step - 1 or batch == len(dataloader) - 1:
+                for logger in loggers:
+                    logger(
+                        {
+                            "epoch": epoch
+                            + batch * dataloader.batch_size / len(dataloader.dataset),
+                            "loss": loss.item(),
+                        }
+                    )
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -79,12 +136,26 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     )
     model_parser = parser.add_argument_group("model")
     model_parser.add_argument(
-        "--model",
-        type=Model,
-        default=Model.CNN_FORWARD,
-        choices=list(iter(Model)),
-        metavar=str({str(model.value) for model in iter(Model)}),
-        help="The model to use.",
+        "--backbone",
+        type=Backbone,
+        default=Backbone.MLP,
+        choices=list(iter(Backbone)),
+        metavar=str({str(b.value) for b in iter(Backbone)}),
+        help="The backbone to use in the model.",
+    )
+    model_parser.add_argument(
+        "--estimator",
+        type=Estimator,
+        default=Estimator.FORWARD,
+        choices=list(iter(Estimator)),
+        metavar=str({str(e.value) for e in iter(Estimator)}),
+        help="The estimator to use for class-label noise robustness.",
+    )
+    model_parser.add_argument(
+        "--freeze-estimator",
+        type=bool,
+        default=False,
+        help="Whether to freeze the parameters of the estimator model.",
     )
     model_parser.add_argument(
         "--epochs",
@@ -95,8 +166,14 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     model_parser.add_argument(
         "--batch_size",
         type=int,
-        default=64,
+        default=32,
         help="The batch size to use when training the model.",
+    )
+    model_parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda" if torch.cuda.is_available() else "cpu",
+        help="The device to train the model on.",
     )
     logging_parser = parser.add_argument_group("logging")
     logging_parser.add_argument(
@@ -108,7 +185,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     logging_parser.add_argument(
         "--log_step",
         type=int,
-        default=16,
+        default=32,
         help="The number of batches between logging metrics.",
     )
     logging_parser.add_argument(

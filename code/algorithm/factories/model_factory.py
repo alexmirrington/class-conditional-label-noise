@@ -1,24 +1,29 @@
 """Classes to aid model creation given config parameters."""
 import argparse
+from typing import Tuple
 
-from config import Model
-from models.base import LabelNoiseRobustModel
+from models import LabelNoiseRobustModel
+
+from .backbone_factory import BackboneFactory
+from .estimator_factory import EstimatorFactory
 
 
 class ModelFactory:
     """Factory class to aid model creation given config parameters."""
 
-    def __init__(self):
-        """Initialise a `ModelFactory` instance."""
-        self._factory_methods = {Model.CNN_FORWARD: ModelFactory._create_cnn_forward}
+    def __init__(self, input_size: Tuple[int, ...], class_count: int):
+        """Initialise a `ModelFactory` instance.
+
+        Params:
+        -------
+        `input_size`: the shape of each example from the dataset.
+        `class_count`: the number of output classes for the backbone predictor.
+        """
+        self._backbone_factory = BackboneFactory(input_size, class_count)
+        self._estimator_factory = EstimatorFactory(class_count)
 
     def create(self, config: argparse.Namespace) -> LabelNoiseRobustModel:
         """Create a model from a dataset and config."""
-        method = self._factory_methods.get(config.model)
-        if method is None:
-            raise NotImplementedError()
-        return method(config)
-
-    @staticmethod
-    def _create_cnn_forward(config: argparse.Namespace) -> LabelNoiseRobustModel:
-        raise NotImplementedError()
+        backbone = self._backbone_factory.create(config)
+        estimator = self._estimator_factory.create(config)
+        return LabelNoiseRobustModel(backbone, estimator)
