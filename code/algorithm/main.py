@@ -101,7 +101,7 @@ def main(config: argparse.Namespace):
         model,
         DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
         torch.optim.Adam(model.parameters(), lr=1e-3),
-        torch.nn.NLLLoss(),
+        torch.nn.CrossEntropyLoss(),
         loggers,
         config,
     )
@@ -128,9 +128,8 @@ def train(
                 labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
             labels = labels.to(config.device)
             optimiser.zero_grad()
-            clean_posteriors, noisy_posteriors = model(feats)
-            noisy_log_posteriors = torch.log(noisy_posteriors)  # Working with NLL
-            loss = criterion(noisy_log_posteriors, labels)
+            clean_posteriors, noisy_activations = model(feats)
+            loss = criterion(noisy_activations, labels)
             loss.backward()
 
             optimiser.step()
