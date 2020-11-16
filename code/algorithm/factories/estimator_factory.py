@@ -1,9 +1,15 @@
 """Classes to aid label-noise estimator model creation."""
 import argparse
 
+import torch
 import torch.nn as nn
-from config import Estimator
-from models.estimators import AbstractEstimator, AnchorPointEstimator, ForwardEstimator
+from config import Dataset, Estimator
+from models.estimators import (
+    AbstractEstimator,
+    AnchorPointEstimator,
+    FixedEstimator,
+    ForwardEstimator,
+)
 from torch.utils.data import DataLoader
 
 
@@ -20,6 +26,7 @@ class EstimatorFactory:
         self._factory_methods = {
             Estimator.FORWARD: self._create_forward,
             Estimator.ANCHOR: self._create_anchor,
+            Estimator.FIXED: self._create_fixed,
         }
         self.class_count = class_count
 
@@ -35,12 +42,12 @@ class EstimatorFactory:
             raise NotImplementedError()
         return method(config, pretrained_backbone, samples)
 
-    def _create_forward(self, config: argparse.Namespace, **kwargs) -> ForwardEstimator:
+    def _create_forward(self, config: argparse.Namespace, *args, **kwargs) -> AbstractEstimator:
         return ForwardEstimator(self.class_count, config.freeze_estimator)
 
     def _create_anchor(
         self, config: argparse.Namespace, pretrained_backbone: nn.Module, samples: DataLoader
-    ) -> AnchorPointEstimator:
+    ) -> AbstractEstimator:
         if pretrained_backbone is None or samples is None:
             raise ValueError(
                 "Initialising a transition matrix using the anchor point method "
@@ -50,3 +57,18 @@ class EstimatorFactory:
         return AnchorPointEstimator(
             pretrained_backbone, samples, self.class_count, config.freeze_estimator
         )
+
+    def _create_fixed(self, config: argparse.Namespace, *args, **kwargs) -> AbstractEstimator:
+        """Create an `estimator` for a given transition matrix."""
+        if config.dataset == Dataset.MNIST_FASHION_05:
+            given_matrix = torch.tensor(
+                [[0.5, 0.2, 0.3], [0.3, 0.5, 0.2], [0.2, 0.3, 0.5]], requires_grad=False
+            ).T
+        elif config.dataset == Dataset.MNIST_FASHION_06:
+            given_matrix = torch.tensor(
+                [[0.4, 0.3, 0.3], [0.3, 0.4, 0.3], [0.3, 0.3, 0.4]], requires_grad=False
+            ).T
+        else:
+            raise ValueError(f"{config.dataset.value} does not have a given transition matrix.")
+
+        return FixedEstimator(self.class_count, given_matrix, config.freeze_estimator)

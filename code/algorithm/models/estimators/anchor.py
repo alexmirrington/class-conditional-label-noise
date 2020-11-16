@@ -19,12 +19,12 @@ class AnchorPointEstimator(AbstractEstimator):
     ) -> None:
         """Create an `AnchorPointEstimator` instance."""
         super().__init__(class_count)
-        self.transitions = nn.Parameter(
-            torch.empty((class_count, class_count)), requires_grad=not frozen
-        )
+        self.transitions = torch.empty((class_count, class_count), requires_grad=not frozen)
+
         self.filter_outlier = True  # Remove after experimentation
         # Update the transition matrix using the multi-class anchor point method
         self.transition_matrix_from_anchors(classifier, sample_dataloader)
+        self.inverse_transitions = torch.inverse(self.transitions)
 
     def transition_matrix_from_anchors(
         self, classifier: nn.Module, sample_dataloader: DataLoader
@@ -75,16 +75,3 @@ class AnchorPointEstimator(AbstractEstimator):
             # Row normalise
             row_sums = self.transitions.sum(axis=0)
             self.transitions /= row_sums[:, np.newaxis]
-
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        """Propagate data through the model.
-
-        Params:
-        -------
-        `features`: input of shape (batch_size, class_count)
-
-        Returns:
-        --------
-        `output`: output of shape (batch_size, class_count)
-        """
-        return torch.matmul(features, self.transitions)
