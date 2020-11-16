@@ -1,8 +1,10 @@
 """Classes to aid label-noise estimator model creation."""
 import argparse
 
+import torch.nn as nn
 from config import Estimator
-from models.estimators import AbstractEstimator, ForwardEstimator
+from models.estimators import AbstractEstimator, AnchorPointEstimator, ForwardEstimator
+from torch.utils.data import DataLoader
 
 
 class EstimatorFactory:
@@ -15,15 +17,36 @@ class EstimatorFactory:
         -------
         `class_count`: the number of output classes for the estimator model.
         """
-        self._factory_methods = {Estimator.FORWARD: self._create_forward}
+        self._factory_methods = {
+            Estimator.FORWARD: self._create_forward,
+            Estimator.ANCHOR: self._create_anchor,
+        }
         self.class_count = class_count
 
-    def create(self, config: argparse.Namespace) -> AbstractEstimator:
+    def create(
+        self,
+        config: argparse.Namespace,
+        pretrained_backbone: nn.Module = None,
+        samples: DataLoader = None,
+    ) -> AbstractEstimator:
         """Create a model from a dataset and config."""
         method = self._factory_methods.get(config.estimator)
         if method is None:
             raise NotImplementedError()
-        return method(config)
+        return method(config, pretrained_backbone, samples)
 
-    def _create_forward(self, config: argparse.Namespace) -> AbstractEstimator:
+    def _create_forward(self, config: argparse.Namespace, **kwargs) -> ForwardEstimator:
         return ForwardEstimator(self.class_count, config.freeze_estimator)
+
+    def _create_anchor(
+        self, config: argparse.Namespace, pretrained_backbone: nn.Module, samples: DataLoader
+    ) -> AnchorPointEstimator:
+        if pretrained_backbone is None or samples is None:
+            raise ValueError(
+                "Initialising a transition matrix using the anchor point method "
+                "requires a trained classifier and samples for which to produce noisy "
+                "posteriors."
+            )
+        return AnchorPointEstimator(
+            pretrained_backbone, samples, self.class_count, config.freeze_estimator
+        )
