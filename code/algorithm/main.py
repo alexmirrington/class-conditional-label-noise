@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import wandb
 from config import Backbone, Dataset, Estimator
 from datasets import load_data
-from factories import ModelFactory
+from factories import BackboneFactory, EstimatorFactory, ModelFactory
 from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from termcolor import colored
 from torch.utils.data import DataLoader
@@ -47,13 +47,43 @@ def main(config: argparse.Namespace):
     if config.wandb:
         loggers.append(WandbLogger())
 
-    # Create model
-    print(colored("model:", attrs=["bold"]))
     input_size = tuple(train_data.tensors[0].size()[1:])
     class_count = len(set(train_data.tensors[1].tolist()))
-    model_factory = ModelFactory(input_size, class_count)
-    model = model_factory.create(config)
-    print(model)
+
+    # Create backbone
+    print(colored("backbone:", attrs=["bold"]))
+    backbone_factory = BackboneFactory(input_size, class_count)
+    backbone = backbone_factory.create(config)
+    print(backbone)
+
+    # Perform pretraining on noisy data without the transition matrix if necessary
+    if config.noisy_pretrain_epochs > 0:
+        print(colored("pretraining backbone:", attrs=["bold"]))
+        backbone = backbone.to(config.device)
+        pretrain_backbone(
+            backbone,
+            DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
+            torch.optim.Adam(backbone.parameters(), lr=1e-3),
+            torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+            loggers,
+            config,
+        )
+    # TODO: if we want to consider any methods which don't use a transition matrix, we will need
+    # to update the way we make these models. eg. just add estimator creation as part of
+    # ModelFactory again, but somehow incorporate the procedure of using the training data
+    # Create transition matrix
+    print(colored("estimator:", attrs=["bold"]))
+    estimator_factory = EstimatorFactory(class_count)
+    estimator = estimator_factory.create(
+        config,
+        backbone,
+        DataLoader(train_data, batch_size=config.batch_size, shuffle=False, num_workers=0),
+    )
+    print(f"{estimator.transitions=}")
+
+    # Create model from backbone and estimator
+    model_factory = ModelFactory()
+    model = model_factory.create(backbone, estimator, config)
 
     # Train and evaluate model
     # TODO Try NLLLoss vs BCEWithLogitsLoss
@@ -110,6 +140,43 @@ def train(
                     )
 
 
+def pretrain_backbone(
+    backbone: torch.nn.Module,
+    dataloader: DataLoader,
+    optimiser: torch.optim.Optimizer,
+    criterion: Optional[Callable[..., torch.Tensor]],
+    loggers: Iterable[Logger],
+    config: argparse.Namespace,
+):
+    """Pretrain a backbone model."""
+    class_count = len(set(dataloader.dataset.tensors[1].tolist()))
+    backbone.train()
+    for epoch in range(config.noisy_pretrain_epochs):
+        for batch, (feats, labels) in enumerate(dataloader):
+            # Move data to GPU
+            feats = feats.to(config.device)
+            # Convert labels to one-hots if using BCEWithLogitsLoss
+            if isinstance(criterion, torch.nn.BCEWithLogitsLoss):
+                labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
+            labels = labels.to(config.device)
+            optimiser.zero_grad()
+            noisy_posteriors = backbone(feats)
+            loss = criterion(noisy_posteriors, labels)
+            loss.backward()
+
+            optimiser.step()
+
+            if batch % config.log_step == config.log_step - 1 or batch == len(dataloader) - 1:
+                for logger in loggers:
+                    logger(
+                        {
+                            "backbone_pretrain_epoch": epoch
+                            + batch * dataloader.batch_size / len(dataloader.dataset),
+                            "backbone_pretrain_loss": loss.item(),
+                        }
+                    )
+
+
 def parse_args(args: List[str]) -> argparse.Namespace:
     """Parse a list of command line arguments."""
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -154,7 +221,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     model_parser.add_argument(
         "--freeze-estimator",
         type=bool,
-        default=False,
+        default=True,
         help="Whether to freeze the parameters of the estimator model.",
     )
     model_parser.add_argument(
@@ -162,6 +229,15 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         type=int,
         default=32,
         help="The maximum number of epochs to train the model for.",
+    )
+    model_parser.add_argument(
+        "--noisy_pretrain_epochs",
+        type=int,
+        default=32,
+        help=(
+            "Number of epochs to pretrain the backbone on the noisy data (necessary for using "
+            "the anchor point based estimator). Set to 0 to skip."
+        ),
     )
     model_parser.add_argument(
         "--batch_size",

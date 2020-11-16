@@ -12,3 +12,4 @@ class Estimator(Enum):
     """Enum outlining available transition matrix estimators."""
 
     FORWARD = "forward"
+    ANCHOR = "anchor"
