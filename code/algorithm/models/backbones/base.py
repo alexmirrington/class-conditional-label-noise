@@ -26,4 +26,5 @@ class AbstractBackbone(nn.Module, ABC):
         Returns:
         --------
         `output`: output of shape `(batch_size, class_count)`.
+        `features`: features before the final softmax layer of shape `(batch_size, class_count)`.
         """
