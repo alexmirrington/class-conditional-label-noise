@@ -52,7 +52,8 @@ class AnchorPointEstimator(AbstractEstimator):
             noisy_posteriors = None
             # get matrix of probabilities for each example
             for feats, _ in sample_dataloader:
-                this_noisy_posteriors = classifier(feats).cpu()
+                this_noisy_posteriors, _ = classifier(feats)
+                this_noisy_posteriors = this_noisy_posteriors.cpu()
                 if noisy_posteriors is None:
                     noisy_posteriors = this_noisy_posteriors
                 else:

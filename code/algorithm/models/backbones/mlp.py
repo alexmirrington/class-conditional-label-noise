@@ -40,4 +40,4 @@ class MLPBackbone(AbstractBackbone):
         features = self.act_1(features)
         features = self.fc_2(features)
         output = self.sm(features)
-        return output
+        return output, features
