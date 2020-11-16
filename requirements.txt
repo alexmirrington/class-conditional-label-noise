@@ -1,4 +1,6 @@
 numpy
 pre-commit
 torch
+termcolor
 wandb==0.10.9
+torchvision
