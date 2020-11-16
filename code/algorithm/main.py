@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
@@ -16,6 +17,7 @@ from config import Backbone, Dataset, Estimator, RobustModel
 from datasets import load_data
 from factories import BackboneFactory, EstimatorFactory, ModelFactory
 from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
+from sklearn.metrics import accuracy_score
 from termcolor import colored
 from torch.utils.data import DataLoader
 
@@ -57,14 +59,20 @@ def main(config: argparse.Namespace):
     print(backbone)
 
     # Perform pretraining on noisy data without the transition matrix if necessary
-    if config.noisy_pretrain_epochs > 0:
+    if config.backbone_pretrain_epochs > 0:
         print(colored("pretraining backbone:", attrs=["bold"]))
         backbone = backbone.to(config.device)
         pretrain_backbone(
             backbone,
             DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
-            torch.optim.SGD(backbone.parameters(), lr=1e-4),
+            torch.optim.SGD(backbone.parameters(), lr=1e-3),
             torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+            loggers,
+            config,
+        )
+        eval_backbone(
+            backbone,
+            DataLoader(val_data, batch_size=config.batch_size, shuffle=False, num_workers=0),
             loggers,
             config,
         )
@@ -151,7 +159,7 @@ def pretrain_backbone(
     """Pretrain a backbone model."""
     class_count = len(set(dataloader.dataset.tensors[1].tolist()))
     backbone.train()
-    for epoch in range(config.noisy_pretrain_epochs):
+    for epoch in range(config.backbone_pretrain_epochs):
         for batch, (feats, labels) in enumerate(dataloader):
             # Move data to GPU
             feats = feats.to(config.device)
@@ -175,6 +183,35 @@ def pretrain_backbone(
                             "backbone_pretrain_loss": loss.item(),
                         }
                     )
+
+
+def eval_backbone(
+    backbone: torch.nn.Module,
+    dataloader: DataLoader,
+    loggers: Iterable[Logger],
+    config: argparse.Namespace,
+):
+    """Evaluate a backbone model which produces posteriors based on the noisy data."""
+    backbone.eval()
+    all_preds = None
+    all_labels = None
+    for feats, labels in dataloader:
+        feats = feats.to(config.device)
+        labels = labels.to(config.device)
+        noisy_posteriors = backbone(feats)
+        preds = torch.argmax(noisy_posteriors, dim=-1)
+
+        if all_preds is None:
+            all_preds = preds.cpu().numpy()
+            all_labels = labels.cpu().numpy()
+        else:
+            all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
+            all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+
+    acc = accuracy_score(all_labels, all_preds)
+
+    for logger in loggers:
+        logger({"accuracy": acc})
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -232,13 +269,19 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         help="Whether to freeze the parameters of the estimator model.",
     )
     model_parser.add_argument(
+        "--anchor_outlier_threshold",
+        type=float,
+        default=0.95,
+        help="Threshold value to use for outliers when using the anchor point estimator.",
+    )
+    model_parser.add_argument(
         "--epochs",
         type=int,
         default=32,
         help="The maximum number of epochs to train the model for.",
     )
     model_parser.add_argument(
-        "--noisy_pretrain_epochs",
+        "--backbone_pretrain_epochs",
         type=int,
         default=32,
         help=(

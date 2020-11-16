@@ -15,13 +15,14 @@ class AnchorPointEstimator(AbstractEstimator):
         classifier: nn.Module,
         sample_dataloader: DataLoader,
         class_count: int,
+        outlier_percentile: float,
         frozen: bool = True,
     ) -> None:
         """Create an `AnchorPointEstimator` instance."""
         super().__init__(class_count)
         self.transitions = torch.empty((class_count, class_count), requires_grad=not frozen)
 
-        self.filter_outlier = True  # Remove after experimentation
+        self.outlier_percentile = outlier_percentile
         # Update the transition matrix using the multi-class anchor point method
         self.transition_matrix_from_anchors(classifier, sample_dataloader)
         self.inverse_transitions = torch.inverse(self.transitions)
@@ -61,10 +62,11 @@ class AnchorPointEstimator(AbstractEstimator):
             print(noisy_posteriors.shape)
             print(noisy_posteriors)
             for i in range(self.class_count):
-                if self.filter_outlier:
+                if self.outlier_percentile > 0 and self.outlier_percentile < 100:
                     # TODO: reference source code
-                    eta_thresh = np.percentile(noisy_posteriors[:, i], 95, interpolation="higher")
-                    # eta_thresh = 0.5
+                    eta_thresh = np.percentile(
+                        noisy_posteriors[:, i], self.outlier_percentile, interpolation="higher"
+                    )
                     robust_posteriors = noisy_posteriors[
                         torch.where(noisy_posteriors[:, i] < eta_thresh)
                     ]
@@ -75,7 +77,3 @@ class AnchorPointEstimator(AbstractEstimator):
                     anchor_point = noisy_posteriors[torch.argmax(noisy_posteriors[:, i])]
 
                 self.transitions[i, :] = anchor_point
-
-            # Row normalise
-            # row_sums = self.transitions.sum(axis=0)
-            # self.transitions /= row_sums[:, np.newaxis]
