@@ -55,7 +55,11 @@ class EstimatorFactory:
                 "posteriors."
             )
         return AnchorPointEstimator(
-            pretrained_backbone, samples, self.class_count, config.freeze_estimator
+            pretrained_backbone,
+            samples,
+            self.class_count,
+            config.anchor_outlier_threshold,
+            config.freeze_estimator,
         )
 
     def _create_fixed(self, config: argparse.Namespace, *args, **kwargs) -> AbstractEstimator:
