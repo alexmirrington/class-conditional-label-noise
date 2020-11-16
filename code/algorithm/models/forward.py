@@ -26,7 +26,7 @@ class ForwardRobustModel(LabelNoiseRobustModel):
         or `CrossEntropyLoss`.
         """
         # Get backbone output features. The backbone features should model P(Y|X)
-        clean_posteriors = self.backbone(features)
+        clean_posteriors, _ = self.backbone(features)
         # Pass features to estimator if training, otherwise return only the
         # backbone features. The estimator should model P(Y~|X)
         noisy_posteriors = None

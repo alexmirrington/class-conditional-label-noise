@@ -168,8 +168,8 @@ def pretrain_backbone(
                 labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
             labels = labels.to(config.device)
             optimiser.zero_grad()
-            noisy_posteriors = backbone(feats)
-            loss = criterion(noisy_posteriors, labels)
+            noisy_posteriors, noisy_activations = backbone(feats)
+            loss = criterion(noisy_activations, labels)
             loss.backward()
 
             optimiser.step()

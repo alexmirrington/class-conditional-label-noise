@@ -52,7 +52,8 @@ class AnchorPointEstimator(AbstractEstimator):
             noisy_posteriors = None
             # get matrix of probabilities for each example
             for feats, _ in sample_dataloader:
-                this_noisy_posteriors = classifier(feats).cpu()
+                this_noisy_posteriors, _ = classifier(feats)
+                this_noisy_posteriors = this_noisy_posteriors.cpu()
                 if noisy_posteriors is None:
                     noisy_posteriors = this_noisy_posteriors
                 else:
@@ -64,9 +65,8 @@ class AnchorPointEstimator(AbstractEstimator):
             for i in range(self.class_count):
                 if self.outlier_percentile > 0 and self.outlier_percentile < 100:
                     # TODO: reference source code
-                    eta_thresh = np.percentile(
-                        noisy_posteriors[:, i], self.outlier_percentile, interpolation="higher"
-                    )
+                    eta_thresh = np.percentile(noisy_posteriors[:, i], 90, interpolation="higher")
+                    # eta_thresh = 0.5
                     robust_posteriors = noisy_posteriors[
                         torch.where(noisy_posteriors[:, i] < eta_thresh)
                     ]
@@ -77,3 +77,6 @@ class AnchorPointEstimator(AbstractEstimator):
                     anchor_point = noisy_posteriors[torch.argmax(noisy_posteriors[:, i])]
 
                 self.transitions[i, :] = anchor_point
+            # Row normalise
+            # row_sums = self.transitions.sum(axis=0)
+            # self.transitions /= row_sums[:, np.newaxis]
