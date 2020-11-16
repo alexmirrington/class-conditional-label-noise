@@ -70,11 +70,10 @@ class AnchorPointEstimator(AbstractEstimator):
                 else:
                     idx_best = torch.argmax(noisy_posteriors[:, i])
                 for j in range(self.class_count):
-                    # TODO: check again whether this should be Tij or Tji
                     self.transitions[i, j] = noisy_posteriors[idx_best, j]
 
             # Row normalise
-            row_sums = self.transitions.sum(axis=1)
+            row_sums = self.transitions.sum(axis=0)
             self.transitions /= row_sums[:, np.newaxis]
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:

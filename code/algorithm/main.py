@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import wandb
 from config import Backbone, Dataset, Estimator
 from datasets import load_data
-from factories import BackboneFactory, EstimatorFactory, ModelFactory
+from factories import BackboneFactory, EstimatorFactory
 from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from termcolor import colored
 from torch.utils.data import DataLoader
@@ -81,22 +81,22 @@ def main(config: argparse.Namespace):
     )
     print(f"{estimator.transitions=}")
 
-    # Create model from backbone and estimator
-    model_factory = ModelFactory()
-    model = model_factory.create(backbone, estimator, config)
-
-    # Train and evaluate model
-    # TODO Try NLLLoss vs BCEWithLogitsLoss
-    print(colored("training:", attrs=["bold"]))
-    model = model.to(config.device)
-    train(
-        model,
-        DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
-        torch.optim.Adam(model.parameters(), lr=1e-3),
-        torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
-        loggers,
-        config,
-    )
+    # # Create model from backbone and estimator
+    # model_factory = ModelFactory()
+    # model = model_factory.create(backbone, estimator, config)
+    #
+    # # Train and evaluate model
+    # # TODO Try NLLLoss vs BCEWithLogitsLoss
+    # print(colored("training:", attrs=["bold"]))
+    # model = model.to(config.device)
+    # train(
+    #     model,
+    #     DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
+    #     torch.optim.Adam(model.parameters(), lr=1e-3),
+    #     torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+    #     loggers,
+    #     config,
+    # )
 
 
 def train(

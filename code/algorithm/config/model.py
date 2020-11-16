@@ -6,6 +6,7 @@ class Backbone(Enum):
     """Enum outlining available model backbones."""
 
     MLP = "mlp"
+    RESNET18 = "resnet18"
 
 
 class Estimator(Enum):
