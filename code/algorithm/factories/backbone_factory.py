@@ -3,7 +3,7 @@ import argparse
 from typing import Tuple
 
 from config import Backbone
-from models.backbones import AbstractBackbone, MLPBackbone
+from models.backbones import AbstractBackbone, MLPBackbone, Resnet18Backbone
 
 
 class BackboneFactory:
@@ -17,7 +17,10 @@ class BackboneFactory:
         `input_size`: the shape of each example from the dataset.
         `class_count`: the number of output classes for the backbone predictor.
         """
-        self._factory_methods = {Backbone.MLP: self._create_mlp}
+        self._factory_methods = {
+            Backbone.MLP: self._create_mlp,
+            Backbone.RESNET18: self._create_resnet18,
+        }
         self.input_size = input_size
         self.class_count = class_count
 
@@ -33,3 +36,9 @@ class BackboneFactory:
         for size in self.input_size:
             flat_input_size *= size
         return MLPBackbone(flat_input_size, self.class_count)
+
+    def _create_resnet18(self, config: argparse.Namespace) -> AbstractBackbone:
+        flat_input_size = 1
+        for size in self.input_size:
+            flat_input_size *= size
+        return Resnet18Backbone(flat_input_size, self.class_count)
