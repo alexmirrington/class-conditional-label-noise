@@ -8,10 +8,11 @@ from torch import nn
 class LabelNoiseRobustModel(nn.Module):
     """Base class for all label-noise-robust models."""
 
-    def __init__(self, backbone: nn.Module, estimator: nn.Module) -> None:
+    def __init__(self, backbone: nn.Module, estimator: nn.Module = None) -> None:
         """Create a `LabelNoiseRobustModel` instance."""
         super().__init__()
         self.backbone = backbone
+        # TODO: add option for no estimator/identity estimator
         self.estimator = estimator
 
     def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

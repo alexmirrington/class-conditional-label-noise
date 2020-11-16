@@ -63,7 +63,7 @@ def main(config: argparse.Namespace):
         pretrain_backbone(
             backbone,
             DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
-            torch.optim.Adam(backbone.parameters(), lr=1e-3),
+            torch.optim.SGD(backbone.parameters(), lr=1e-4),
             torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
             loggers,
             config,
