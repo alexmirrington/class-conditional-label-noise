@@ -12,9 +12,9 @@ from typing import Callable, Iterable, List, Optional
 import torch
 import torch.nn.functional as F
 import wandb
-from config import Backbone, Dataset, Estimator
+from config import Backbone, Dataset, Estimator, RobustModel
 from datasets import load_data
-from factories import BackboneFactory, EstimatorFactory
+from factories import BackboneFactory, EstimatorFactory, ModelFactory
 from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from termcolor import colored
 from torch.utils.data import DataLoader
@@ -81,22 +81,22 @@ def main(config: argparse.Namespace):
     )
     print(f"{estimator.transitions=}")
 
-    # # Create model from backbone and estimator
-    # model_factory = ModelFactory()
-    # model = model_factory.create(backbone, estimator, config)
-    #
-    # # Train and evaluate model
-    # # TODO Try NLLLoss vs BCEWithLogitsLoss
-    # print(colored("training:", attrs=["bold"]))
-    # model = model.to(config.device)
-    # train(
-    #     model,
-    #     DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
-    #     torch.optim.Adam(model.parameters(), lr=1e-3),
-    #     torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
-    #     loggers,
-    #     config,
-    # )
+    # Create model from backbone and estimator
+    model_factory = ModelFactory()
+    model = model_factory.create(backbone, estimator, config)
+
+    # Train and evaluate model
+    # TODO Try NLLLoss vs BCEWithLogitsLoss
+    print(colored("training:", attrs=["bold"]))
+    model = model.to(config.device)
+    train(
+        model,
+        DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
+        torch.optim.Adam(model.parameters(), lr=1e-3),
+        torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+        loggers,
+        config,
+    )
 
 
 def train(
@@ -202,6 +202,13 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         help="The seed to use when choosing a subset of the data to train on.",
     )
     model_parser = parser.add_argument_group("model")
+    model_parser.add_argument(
+        "--robust_type",
+        default=RobustModel.FORWARD,
+        choices=list(iter(RobustModel)),
+        metavar=str({str(b.value) for b in iter(RobustModel)}),
+        help="The type of robust model (which determines how the transition matrix is used).",
+    )
     model_parser.add_argument(
         "--backbone",
         type=Backbone,

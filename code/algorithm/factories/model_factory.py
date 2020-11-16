@@ -2,7 +2,8 @@
 import argparse
 
 import torch.nn as nn
-from models import LabelNoiseRobustModel
+from config import RobustModel
+from models import BackwardRobustModel, ForwardRobustModel, LabelNoiseRobustModel
 
 # from .backbone_factory import BackboneFactory
 # from .estimator_factory import EstimatorFactory
@@ -19,14 +20,31 @@ class ModelFactory:
         `input_size`: the shape of each example from the dataset.
         `class_count`: the number of output classes for the backbone predictor.
         """
-        # self._backbone_factory = BackboneFactory(input_size, class_count)
-        # self._estimator_factory = EstimatorFactory(class_count)
+        self._factory_methods = {
+            RobustModel.FORWARD: self._create_forward,
+            RobustModel.BACKWARD: self._create_backward,
+        }
 
     def create(
         self, backbone: nn.Module, estimator: nn.Module, config: argparse.Namespace
     ) -> LabelNoiseRobustModel:
-        """Create a model from a dataset and config."""
-        return LabelNoiseRobustModel(backbone, estimator)
+        """Create a LabelNoiseRobustModel from given backbone and estimator."""
+        method = self._factory_methods.get(config.robust_type)
+        if method is None:
+            raise NotImplementedError()
+        return method(backbone, estimator, config)
+
+    def _create_forward(
+        self, backbone: nn.Module, estimator: nn.Module, config: argparse.Namespace
+    ) -> LabelNoiseRobustModel:
+        """Create a model from a config."""
+        return ForwardRobustModel(backbone, estimator)
+
+    def _create_backward(
+        self, backbone: nn.Module, estimator: nn.Module, config: argparse.Namespace
+    ) -> LabelNoiseRobustModel:
+        """Create a model from a config."""
+        return BackwardRobustModel(backbone, estimator)
 
 
 # TODO: different ways to use transition matrix. ie. forward, backward etc.
