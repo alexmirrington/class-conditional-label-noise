@@ -32,6 +32,4 @@ class ForwardRobustModel(LabelNoiseRobustModel):
         noisy_posteriors = None
         if self.training:
             noisy_posteriors = clean_posteriors @ self.estimator.transitions
-        print("clean: \n", clean_posteriors)
-        print("noisy: \n", noisy_posteriors)
         return clean_posteriors, noisy_posteriors

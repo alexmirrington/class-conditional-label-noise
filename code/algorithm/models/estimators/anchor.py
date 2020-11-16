@@ -64,14 +64,18 @@ class AnchorPointEstimator(AbstractEstimator):
                 if self.filter_outlier:
                     # TODO: reference source code
                     eta_thresh = np.percentile(noisy_posteriors[:, i], 95, interpolation="higher")
-                    robust_posteriors = noisy_posteriors
-                    robust_posteriors[robust_posteriors >= eta_thresh] = 0.0
+                    # eta_thresh = 0.5
+                    robust_posteriors = noisy_posteriors[
+                        torch.where(noisy_posteriors[:, i] < eta_thresh)
+                    ]
+
                     idx_best = torch.argmax(robust_posteriors[:, i])
+                    anchor_point = robust_posteriors[idx_best]
                 else:
-                    idx_best = torch.argmax(noisy_posteriors[:, i])
-                for j in range(self.class_count):
-                    self.transitions[i, j] = noisy_posteriors[idx_best, j]
+                    anchor_point = noisy_posteriors[torch.argmax(noisy_posteriors[:, i])]
+
+                self.transitions[i, :] = anchor_point
 
             # Row normalise
-            row_sums = self.transitions.sum(axis=0)
-            self.transitions /= row_sums[:, np.newaxis]
+            # row_sums = self.transitions.sum(axis=0)
+            # self.transitions /= row_sums[:, np.newaxis]
