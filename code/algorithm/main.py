@@ -101,7 +101,7 @@ def main(config: argparse.Namespace):
         model,
         DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
         torch.optim.Adam(model.parameters(), lr=1e-3),
-        torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+        torch.nn.NLLLoss(),
         loggers,
         config,
     )
@@ -128,11 +128,9 @@ def train(
                 labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
             labels = labels.to(config.device)
             optimiser.zero_grad()
-            clean_posteriors, noisy_activations = model(feats)
-            loss = criterion(noisy_activations, labels)
-            # TODO Term to encourage transition matrix to be nonnegative
-            # loss += max(torch.norm(model.estimator.transitions, p=1), class_count)
-            # loss += torch.sum(F.relu(-model.estimator.transitions))
+            clean_posteriors, noisy_posteriors = model(feats)
+            noisy_log_posteriors = torch.log(noisy_posteriors)  # Working with NLL
+            loss = criterion(noisy_log_posteriors, labels)
             loss.backward()
 
             optimiser.step()
@@ -198,7 +196,7 @@ def eval_backbone(
     for feats, labels in dataloader:
         feats = feats.to(config.device)
         labels = labels.to(config.device)
-        noisy_posteriors = backbone(feats)
+        noisy_posteriors, _ = backbone(feats)
         preds = torch.argmax(noisy_posteriors, dim=-1)
 
         if all_preds is None:

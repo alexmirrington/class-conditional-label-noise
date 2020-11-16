@@ -31,6 +31,7 @@ class MLPBackbone(AbstractBackbone):
         Returns:
         --------
         `output`: output of shape `(batch_size, class_count)`.
+        `features`: features before the final softmax layer of shape `(batch_size, class_count)`.
         """
         features = torch.flatten(features, start_dim=1)
         features = self.fc_0(features)

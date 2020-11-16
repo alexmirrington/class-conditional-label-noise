@@ -21,9 +21,6 @@ class ForwardRobustModel(LabelNoiseRobustModel):
         `(clean_posteriors, noisy_posteriors)`: The estimated posterior
         probabilities of the clean labels and noisy labels respectively.
         If the model is in eval mode, `noisy_posteriors` is set to `None`.
-        `noisy_posteriors` may be a set of raw activations instead of a
-        probability distribution for compatibility with `BCEWithLogitsLoss`
-        or `CrossEntropyLoss`.
         """
         # Get backbone output features. The backbone features should model P(Y|X)
         clean_posteriors, _ = self.backbone(features)

@@ -28,9 +28,10 @@ class Resnet18Backbone(AbstractBackbone):
         Returns:
         --------
         `output`: output of shape `(batch_size, class_count)`.
+        `features`: features before the final softmax layer of shape `(batch_size, class_count)`.
         """
         # TODO: update documentation for this
         features = torch.unsqueeze(features, 1)
         features = self.resnet18(features)
         output = self.sm(features)
-        return output
+        return output, features
