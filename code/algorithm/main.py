@@ -268,7 +268,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         help="The estimator to use for class-label noise robustness.",
     )
     model_parser.add_argument(
-        "--freeze-estimator",
+        "--freeze_estimator",
         type=bool,
         default=True,
         help="Whether to freeze the parameters of the estimator model.",
@@ -360,6 +360,7 @@ if __name__ == "__main__":
     del config_dict["seed"]
     del config_dict["results_dir"]
     del config_dict["log_step"]
+    del config_dict["device"]
     # CAVEAT: The following assumes the config is not nested.
     group = hashlib.sha256(
         bytes(json.dumps(config_dict, sort_keys=True, default=str), encoding="UTF-8")
