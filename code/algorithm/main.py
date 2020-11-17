@@ -13,7 +13,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
-from config import Backbone, Dataset, Estimator, LossCorrection
 from datasets import load_data
 from factories import BackboneFactory, EstimatorFactory, LossFactory
 from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
@@ -21,6 +20,8 @@ from sklearn.metrics import accuracy_score
 from termcolor import colored
 from torch.utils.data import DataLoader
 from utils import LabelSmoothingCrossEntropyLoss
+
+from config import Backbone, Dataset, Estimator, LossCorrection
 
 
 def main(config: argparse.Namespace):
@@ -98,7 +99,7 @@ def main(config: argparse.Namespace):
     criterion = criterion_factory.create(estimator, config)
 
     # Get a new backbone
-    # backbone = backbone_factory.create(config)
+    backbone = backbone_factory.create(config)
 
     # Train and evaluate model
     print(colored("training:", attrs=["bold"]))
@@ -106,7 +107,7 @@ def main(config: argparse.Namespace):
         backbone,
         train_data,
         val_data,
-        torch.optim.Adam(backbone.parameters(), lr=1e-4),
+        torch.optim.SGD(backbone.parameters(), lr=config.lr),
         criterion,
         loggers,
         config,
@@ -386,6 +387,12 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         type=int,
         default=32,
         help="The maximum number of epochs to train the model for.",
+    )
+    model_parser.add_argument(
+        "--lr",
+        type=float,
+        default=1e-2,
+        help="The learning rate to use when training.",
     )
     model_parser.add_argument(
         "--backbone_pretrain_epochs",

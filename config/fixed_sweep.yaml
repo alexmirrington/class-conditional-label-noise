@@ -1,0 +1,26 @@
+program: code/algorithm/main.py
+method: grid
+project: "class-conditional-label-noise"
+name: "Fixed transition sweep"
+description: "Grid search over multiple datasets and loss correction methods."
+parameters:
+  seed:
+    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  loss_correction:
+    values: ["none", "forward"]
+  dataset:
+    values: ["mnist_fashion_05", "mnist_fashion_06"]
+  lr:
+    values: [0.01, 0.001]
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--wandb"
+  - "--estimator"
+  - "fixed"
+  - "--backbone_pretrain_epochs"
+  - 0
+  - "--epochs"
+  - 128
+  - ${args}
