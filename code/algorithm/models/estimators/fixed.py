@@ -12,6 +12,6 @@ class FixedEstimator(AbstractEstimator):
     ) -> None:
         """Create a `FixedEstimator` instance."""
         super().__init__(class_count)
-        self.device = self.device
+        self.device = device
         self.transitions = torch.tensor(given_matrix).to(device)
         self.inverse_transitions = torch.inverse(self.transitions)
