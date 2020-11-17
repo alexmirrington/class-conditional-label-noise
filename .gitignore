@@ -4,6 +4,9 @@ code/data/*.npz
 code/results/local
 code/results/wandb
 
+# OS
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
