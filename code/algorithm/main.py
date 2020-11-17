@@ -69,15 +69,9 @@ def main(config: argparse.Namespace):
         backbone = backbone.to(config.device)
         pretrain_backbone(
             backbone,
-            DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
+            train_data,
             torch.optim.SGD(backbone.parameters(), lr=1e-3),
             criterion,
-            loggers,
-            config,
-        )
-        eval_backbone(
-            backbone,
-            DataLoader(val_data, batch_size=config.batch_size, shuffle=False, num_workers=0),
             loggers,
             config,
         )
@@ -96,34 +90,38 @@ def main(config: argparse.Namespace):
             f"Transition matrix to be usd by the Label Noise Robust Model:\n"
             f"{estimator.transitions=}"
         )
+        wandb.run.summary["transitions"] = estimator.transitions.t()
 
     # Create model from backbone and estimator
     model_factory = ModelFactory()
     model = model_factory.create(backbone, estimator, config)
 
     # Train and evaluate model
-    # TODO Try NLLLoss vs BCEWithLogitsLoss
     print(colored("training:", attrs=["bold"]))
     model = model.to(config.device)
     train(
         model,
-        DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
-        torch.optim.Adam(model.parameters(), lr=1e-3),
+        train_data,
+        val_data,
+        torch.optim.SGD(backbone.parameters(), lr=1e-3),
         criterion,
         loggers,
         config,
     )
+    test(model, test_data, loggers, config)
 
 
 def train(
     model: torch.nn.Module,
-    dataloader: DataLoader,
+    train_data: torch.utils.data.Dataset,
+    val_data: torch.utils.data.Dataset,
     optimiser: torch.optim.Optimizer,
     criterion: Optional[Callable[..., torch.Tensor]],
     loggers: Iterable[Logger],
     config: argparse.Namespace,
 ):
     """Train a model."""
+    dataloader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0)
     class_count = len(set(dataloader.dataset.tensors[1].tolist()))
     model.train()
     for epoch in range(config.epochs):
@@ -135,32 +133,119 @@ def train(
                 labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
             labels = labels.to(config.device)
             optimiser.zero_grad()
-            clean_posteriors, noisy_activations = model(feats)
+            clean_activations, noisy_activations = model(feats)
             loss = criterion(noisy_activations, labels)
             loss.backward()
 
             optimiser.step()
 
+            preds = torch.argmax(noisy_activations, dim=-1).cpu().numpy()
             if batch % config.log_step == config.log_step - 1 or batch == len(dataloader) - 1:
+                metrics = {
+                    "train/epoch": epoch + batch * dataloader.batch_size / len(dataloader.dataset),
+                    "train/loss": loss.item(),
+                    "train/accuracy": accuracy_score(labels.cpu().numpy(), preds),
+                }
                 for logger in loggers:
-                    logger(
-                        {
-                            "epoch": epoch
-                            + batch * dataloader.batch_size / len(dataloader.dataset),
-                            "loss": loss.item(),
-                        }
-                    )
+                    logger(metrics)
+        evaluate(model, epoch + 1, val_data, criterion, loggers, config)
+
+
+def evaluate(
+    model: torch.nn.Module,
+    epoch: int,
+    data: torch.utils.data.Dataset,
+    criterion: Optional[Callable[..., torch.Tensor]],
+    loggers: Iterable[Logger],
+    config: argparse.Namespace,
+):
+    """Evaluate a backbone model which produces posteriors based on the noisy data."""
+    dataloader = DataLoader(data, batch_size=config.batch_size, shuffle=False, num_workers=0)
+    model.eval()
+    all_preds = None
+    all_labels = None
+    for feats, labels in dataloader:
+        # Move data to GPU
+        feats = feats.to(config.device)
+        clean_activations, noisy_activations = model(feats)
+        loss = criterion(noisy_activations, labels)
+        preds = torch.argmax(noisy_activations, dim=-1)
+
+        if all_preds is None:
+            all_preds = preds.cpu().numpy()
+            all_labels = labels.cpu().numpy()
+        else:
+            all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
+            all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+
+    acc = accuracy_score(all_labels, all_preds)
+
+    class_names = None
+    if config.dataset == Dataset.MNIST_FASHION_05 or config.dataset == Dataset.MNIST_FASHION_06:
+        class_names = ["0 (T-shirt)", "1 (Trouser)", "2 (Dress)"]
+    elif config.dataset == Dataset.CIFAR:
+        class_names = ["0 (Plane)", "1 (Car)", "2 (Cat)"]
+
+    for logger in loggers:
+        metrics = {"train/epoch": float(epoch), "val/loss": loss.item(), "val/accuracy": acc}
+        if isinstance(logger, WandbLogger) and config.wandb:
+            metrics["val/confusion"] = wandb.plot.confusion_matrix(
+                all_preds, all_labels, class_names
+            )
+        logger(metrics)
+
+
+def test(
+    model: torch.nn.Module,
+    data: torch.utils.data.Dataset,
+    loggers: Iterable[Logger],
+    config: argparse.Namespace,
+):
+    """Evaluate a backbone model which produces posteriors based on the noisy data."""
+    dataloader = DataLoader(data, batch_size=config.batch_size, shuffle=False, num_workers=0)
+    model.eval()
+    all_preds = None
+    all_labels = None
+    for feats, labels in dataloader:
+        # Move data to GPU
+        feats = feats.to(config.device)
+        clean_activations, noisy_activations = model(feats)
+        preds = torch.argmax(clean_activations, dim=-1)
+
+        if all_preds is None:
+            all_preds = preds.cpu().numpy()
+            all_labels = labels.cpu().numpy()
+        else:
+            all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
+            all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+
+    acc = accuracy_score(all_labels, all_preds)
+
+    class_names = None
+    if config.dataset == Dataset.MNIST_FASHION_05 or config.dataset == Dataset.MNIST_FASHION_06:
+        class_names = ["0 (T-shirt)", "1 (Trouser)", "2 (Dress)"]
+    elif config.dataset == Dataset.CIFAR:
+        class_names = ["0 (Plane)", "1 (Car)", "2 (Cat)"]
+
+    for logger in loggers:
+        metrics = {"test/accuracy": acc}
+        if isinstance(logger, WandbLogger) and config.wandb:
+            metrics["test/confusion"] = wandb.plot.confusion_matrix(
+                all_preds, all_labels, class_names
+            )
+        logger(metrics)
 
 
 def pretrain_backbone(
     backbone: torch.nn.Module,
-    dataloader: DataLoader,
+    data: torch.utils.data.Dataset,
     optimiser: torch.optim.Optimizer,
     criterion: Optional[Callable[..., torch.Tensor]],
     loggers: Iterable[Logger],
     config: argparse.Namespace,
 ):
     """Pretrain a backbone model."""
+    dataloader = DataLoader(data, batch_size=config.batch_size, shuffle=True, num_workers=0)
     class_count = len(set(dataloader.dataset.tensors[1].tolist()))
     backbone.train()
     for epoch in range(config.backbone_pretrain_epochs):
@@ -179,54 +264,54 @@ def pretrain_backbone(
             optimiser.step()
 
             if batch % config.log_step == config.log_step - 1 or batch == len(dataloader) - 1:
+                metrics = {
+                    "pretrain/epoch": epoch
+                    + batch * dataloader.batch_size / len(dataloader.dataset),
+                    "pretrain/loss": loss.item(),
+                }
                 for logger in loggers:
-                    logger(
-                        {
-                            "pretrain/epoch": epoch
-                            + batch * dataloader.batch_size / len(dataloader.dataset),
-                            "pretrain/loss": loss.item(),
-                        }
-                    )
+                    logger(metrics)
 
 
-def eval_backbone(
-    backbone: torch.nn.Module,
-    dataloader: DataLoader,
-    loggers: Iterable[Logger],
-    config: argparse.Namespace,
-):
-    """Evaluate a backbone model which produces posteriors based on the noisy data."""
-    backbone.eval()
-    all_preds = None
-    all_labels = None
-    for feats, labels in dataloader:
-        feats = feats.to(config.device)
-        labels = labels.to(config.device)
-        noisy_posteriors, _ = backbone(feats)
-        preds = torch.argmax(noisy_posteriors, dim=-1)
+# def eval_backbone(
+#     backbone: torch.nn.Module,
+#     data: torch.utils.data.Dataset,
+#     loggers: Iterable[Logger],
+#     config: argparse.Namespace,
+# ):
+#     """Evaluate a backbone model which produces posteriors based on the noisy data."""
+#     dataloader = DataLoader(data, batch_size=config.batch_size, shuffle=False, num_workers=0)
+#     backbone.eval()
+#     all_preds = None
+#     all_labels = None
+#     for feats, labels in dataloader:
+#         feats = feats.to(config.device)
+#         labels = labels.to(config.device)
+#         noisy_posteriors, _ = backbone(feats)
+#         preds = torch.argmax(noisy_posteriors, dim=-1)
 
-        if all_preds is None:
-            all_preds = preds.cpu().numpy()
-            all_labels = labels.cpu().numpy()
-        else:
-            all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
-            all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+#         if all_preds is None:
+#             all_preds = preds.cpu().numpy()
+#             all_labels = labels.cpu().numpy()
+#         else:
+#             all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
+#             all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
 
-    acc = accuracy_score(all_labels, all_preds)
+#     acc = accuracy_score(all_labels, all_preds)
 
-    class_names = None
-    if config.dataset == Dataset.MNIST_FASHION_05 or config.dataset == Dataset.MNIST_FASHION_06:
-        class_names = ["T-shirt", "Trouser", "Dress"]
-    elif config.dataset == Dataset.CIFAR:
-        class_names = ["Plane", "Car", "Cat"]
+#     class_names = None
+#     if config.dataset == Dataset.MNIST_FASHION_05 or config.dataset == Dataset.MNIST_FASHION_06:
+#         class_names = ["T-shirt", "Trouser", "Dress"]
+#     elif config.dataset == Dataset.CIFAR:
+#         class_names = ["Plane", "Car", "Cat"]
 
-    for logger in loggers:
-        metrics = {"val/accuracy": acc}
-        if isinstance(logger, WandbLogger) and config.wandb:
-            metrics["val/confusion"] = wandb.plot.confusion_matrix(
-                all_preds, all_labels, class_names
-            )
-        logger(metrics)
+#     for logger in loggers:
+#         metrics = {"val/accuracy": acc}
+#         if isinstance(logger, WandbLogger) and config.wandb:
+#             metrics["val/confusion"] = wandb.plot.confusion_matrix(
+#                 all_preds, all_labels, class_names
+#             )
+#         logger(metrics)
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -380,6 +465,8 @@ if __name__ == "__main__":
         # Set up wandb
         wandb.init(project="class-conditional-label-noise", dir=config.results_dir, group=group)
         new_results_dir = Path(config.results_dir) / "local" / config.id
+        new_results_dir.mkdir(parents=True)
+        config.results_dir = str(new_results_dir)
         config.id = wandb.run.id
         # Serialise and deserialise config to convert enums to strings before sending to wandb
         wandb_config = json.dumps(config.__dict__, sort_keys=True, default=lambda x: x.value)
