@@ -92,7 +92,7 @@ def main(config: argparse.Namespace):
             f"{estimator.transitions=}"
         )
         if config.wandb:
-            wandb.run.summary["transitions"] = estimator.transitions.t()
+            wandb.run.summary["transitions"] = estimator.transitions.t().detach().cpu().numpy()
 
     # Create model from backbone and estimator
     criterion_factory = LossFactory()
@@ -173,6 +173,7 @@ def evaluate(
         for feats, labels in dataloader:
             # Move data to GPU
             feats = feats.to(config.device)
+            labels = labels.to(config.device)
             clean_posteriors, clean_activations = model(feats)
             loss = criterion(clean_posteriors, labels)
             preds = torch.argmax(clean_posteriors, dim=-1)
