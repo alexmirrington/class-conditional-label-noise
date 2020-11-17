@@ -22,7 +22,7 @@ class BackwardRobustModel(LabelNoiseRobustModel):
         probabilities of the clean labels and noisy labels respectively.
         """
         # Get backbone output features. The backbone features should model P(Y~|X)
-        noisy_posteriors, noisy_activations = self.backbone(features)
+        noisy_posteriors, _ = self.backbone(features)
         # Pass features to estimator and extract clean posteriors P(Y|X) using transition matrix
         clean_activations = noisy_posteriors @ self.estimator.inverse_transitions
-        return clean_activations, noisy_activations
+        return clean_activations, noisy_posteriors
