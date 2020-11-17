@@ -2,7 +2,25 @@
 from enum import Enum
 
 
-class Model(Enum):
-    """Enum outlining available model variants."""
+class Backbone(Enum):
+    """Enum outlining available model backbones."""
 
-    CNN_FORWARD = "cnn_forward"
+    MLP = "mlp"
+    RESNET18 = "resnet18"
+
+
+class Estimator(Enum):
+    """Enum outlining available transition matrix estimators."""
+
+    FORWARD = "forward"
+    ANCHOR = "anchor"
+    FIXED = "fixed"
+    NONE = "none"
+
+
+class RobustModel(Enum):
+    """Enum outlining the types of robust models, which each use transition matrices differently."""
+
+    FORWARD = "forward"
+    BACKWARD = "backward"
+    NO_TRANS = "no_trans"
