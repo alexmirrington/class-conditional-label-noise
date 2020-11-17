@@ -4,12 +4,7 @@ import argparse
 import torch
 import torch.nn as nn
 from config import Dataset, Estimator
-from models.estimators import (
-    AbstractEstimator,
-    AnchorPointEstimator,
-    FixedEstimator,
-    ForwardEstimator,
-)
+from models.estimators import AbstractEstimator, AnchorPointEstimator, FixedEstimator
 from torch.utils.data import DataLoader
 
 
@@ -24,7 +19,6 @@ class EstimatorFactory:
         `class_count`: the number of output classes for the estimator model.
         """
         self._factory_methods = {
-            Estimator.FORWARD: self._create_forward,
             Estimator.ANCHOR: self._create_anchor,
             Estimator.FIXED: self._create_fixed,
             Estimator.NONE: self._create_none,
@@ -42,9 +36,6 @@ class EstimatorFactory:
         if method is None:
             raise NotImplementedError()
         return method(config, pretrained_backbone, samples)
-
-    def _create_forward(self, config: argparse.Namespace, *args, **kwargs) -> AbstractEstimator:
-        return ForwardEstimator(self.class_count, config.freeze_estimator)
 
     def _create_anchor(
         self, config: argparse.Namespace, pretrained_backbone: nn.Module, samples: DataLoader

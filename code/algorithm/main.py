@@ -127,7 +127,6 @@ def train(
     class_count = len(set(dataloader.dataset.tensors[1].tolist()))
     model.train()
     for epoch in range(config.epochs):
-        print(f"{model.estimator.transitions=}")
         for batch, (feats, labels) in enumerate(dataloader):
             # Move data to GPU
             feats = feats.to(config.device)
@@ -183,9 +182,9 @@ def pretrain_backbone(
                 for logger in loggers:
                     logger(
                         {
-                            "backbone_pretrain_epoch": epoch
+                            "pretrain/epoch": epoch
                             + batch * dataloader.batch_size / len(dataloader.dataset),
-                            "backbone_pretrain_loss": loss.item(),
+                            "pretrain/loss": loss.item(),
                         }
                     )
 
@@ -215,8 +214,19 @@ def eval_backbone(
 
     acc = accuracy_score(all_labels, all_preds)
 
+    class_names = None
+    if config.dataset == Dataset.MNIST_FASHION_05 or config.dataset == Dataset.MNIST_FASHION_06:
+        class_names = ["T-shirt", "Trouser", "Dress"]
+    elif config.dataset == Dataset.CIFAR:
+        class_names = ["Plane", "Car", "Cat"]
+
     for logger in loggers:
-        logger({"accuracy": acc})
+        metrics = {"val/accuracy": acc}
+        if isinstance(logger, WandbLogger) and config.wandb:
+            metrics["val/confusion"] = wandb.plot.confusion_matrix(
+                all_preds, all_labels, class_names
+            )
+        logger(metrics)
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -369,6 +379,7 @@ if __name__ == "__main__":
     if config.wandb:
         # Set up wandb
         wandb.init(project="class-conditional-label-noise", dir=config.results_dir, group=group)
+        new_results_dir = Path(config.results_dir) / "local" / config.id
         config.id = wandb.run.id
         # Serialise and deserialise config to convert enums to strings before sending to wandb
         wandb_config = json.dumps(config.__dict__, sort_keys=True, default=lambda x: x.value)

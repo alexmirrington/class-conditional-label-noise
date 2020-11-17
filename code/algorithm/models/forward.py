@@ -18,15 +18,11 @@ class ForwardRobustModel(LabelNoiseRobustModel):
 
         Returns:
         --------
-        `(clean_posteriors, noisy_posteriors)`: The estimated posterior
+        `(clean_activations, noisy_activations)`: The estimated posterior
         probabilities of the clean labels and noisy labels respectively.
-        If the model is in eval mode, `noisy_posteriors` is set to `None`.
         """
         # Get backbone output features. The backbone features should model P(Y|X)
-        clean_posteriors, _ = self.backbone(features)
-        # Pass features to estimator if training, otherwise return only the
-        # backbone features. The estimator should model P(Y~|X)
-        noisy_posteriors = None
-        if self.training:
-            noisy_posteriors = clean_posteriors @ self.estimator.transitions
-        return clean_posteriors, noisy_posteriors
+        clean_posteriors, clean_activations = self.backbone(features)
+        # Pass features to estimator. The estimator should model P(Y~|X)
+        noisy_activations = clean_posteriors @ self.estimator.transitions
+        return clean_activations, noisy_activations

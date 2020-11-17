@@ -22,7 +22,7 @@ class AnchorPointEstimator(AbstractEstimator):
         super().__init__(class_count)
         self.transitions = torch.empty((class_count, class_count))
 
-        self.outlier_percentile = outlier_percentile
+        self.outlier_percentile = outlier_percentile * 100
         # Update the transition matrix using the multi-class anchor point method
         self.transition_matrix_from_anchors(classifier, sample_dataloader)
         self.inverse_transitions = torch.inverse(self.transitions)
@@ -60,8 +60,6 @@ class AnchorPointEstimator(AbstractEstimator):
                     # Shape: (num_samples, class_count)
                     noisy_posteriors = torch.cat((noisy_posteriors, this_noisy_posteriors), dim=0)
 
-            print(noisy_posteriors.shape)
-            print(noisy_posteriors)
             for i in range(self.class_count):
                 if self.outlier_percentile > 0 and self.outlier_percentile < 100:
                     # TODO: reference source code
