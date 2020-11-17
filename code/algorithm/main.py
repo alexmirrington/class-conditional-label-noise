@@ -20,6 +20,7 @@ from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from sklearn.metrics import accuracy_score
 from termcolor import colored
 from torch.utils.data import DataLoader
+from utils import LabelSmoothingCrossEntropyLoss
 
 
 def main(config: argparse.Namespace):
@@ -52,6 +53,10 @@ def main(config: argparse.Namespace):
     input_size = tuple(train_data.tensors[0].size()[1:])
     class_count = len(set(train_data.tensors[1].tolist()))
 
+    if config.label_smoothing > 0 and config.label_smoothing < 1:
+        criterion = LabelSmoothingCrossEntropyLoss(config.label_smoothing)
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
     # Create backbone
     print(colored("backbone:", attrs=["bold"]))
     backbone_factory = BackboneFactory(input_size, class_count)
@@ -66,7 +71,7 @@ def main(config: argparse.Namespace):
             backbone,
             DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
             torch.optim.SGD(backbone.parameters(), lr=1e-3),
-            torch.nn.CrossEntropyLoss(),  # torch.nn.CrossEntropyLoss(),
+            criterion,
             loggers,
             config,
         )
@@ -104,7 +109,7 @@ def main(config: argparse.Namespace):
         model,
         DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0),
         torch.optim.Adam(model.parameters(), lr=1e-3),
-        torch.nn.CrossEntropyLoss(),
+        criterion,
         loggers,
         config,
     )
@@ -257,7 +262,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     model_parser.add_argument(
         "--estimator",
         type=Estimator,
-        default=Estimator.FORWARD,
+        default=Estimator.ANCHOR,
         choices=list(iter(Estimator)),
         metavar=str({str(e.value) for e in iter(Estimator)}),
         help="The estimator to use for class-label noise robustness.",
@@ -288,6 +293,12 @@ def parse_args(args: List[str]) -> argparse.Namespace:
             "Number of epochs to pretrain the backbone on the noisy data (necessary for using "
             "the anchor point based estimator). Set to 0 to skip."
         ),
+    )
+    model_parser.add_argument(
+        "--label_smoothing",
+        type=float,
+        default=0.0,
+        help="If >0, label smoothing with this value will be applied for loss calculations.",
     )
     model_parser.add_argument(
         "--batch_size",

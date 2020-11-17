@@ -11,9 +11,7 @@ class ForwardEstimator(AbstractEstimator):
     def __init__(self, class_count: int, frozen: bool = False) -> None:
         """Create a `ForwardEstimator` instance."""
         super().__init__(class_count)
-        self.transitions = nn.Parameter(
-            torch.empty((class_count, class_count)), requires_grad=not frozen
-        )
+        self.transitions = nn.Parameter(torch.empty((class_count, class_count)))
         self.reset_parameters()
 
     def reset_parameters(self):
