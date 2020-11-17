@@ -8,5 +8,5 @@ __all__ = [
     LabelNoiseRobustModel.__name__,
     BackwardRobustModel.__name__,
     ForwardRobustModel.__name__,
-    NoTransitionModel._name__,
+    NoTransitionModel.__name__,
 ]

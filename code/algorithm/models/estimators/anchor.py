@@ -20,7 +20,7 @@ class AnchorPointEstimator(AbstractEstimator):
     ) -> None:
         """Create an `AnchorPointEstimator` instance."""
         super().__init__(class_count)
-        self.transitions = torch.empty((class_count, class_count), requires_grad=not frozen)
+        self.transitions = torch.empty((class_count, class_count))
 
         self.outlier_percentile = outlier_percentile
         # Update the transition matrix using the multi-class anchor point method

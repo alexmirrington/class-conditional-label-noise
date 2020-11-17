@@ -15,5 +15,5 @@ class FixedEstimator(AbstractEstimator):
     ) -> None:
         """Create a `FixedEstimator` instance."""
         super().__init__(class_count)
-        self.transitions = torch.tensor(given_matrix, requires_grad=not frozen)
+        self.transitions = torch.tensor(given_matrix)
         self.inverse_transitions = torch.inverse(self.transitions)

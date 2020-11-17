@@ -7,7 +7,7 @@ from .base import LabelNoiseRobustModel
 
 
 class NoTransitionModel(LabelNoiseRobustModel):
-    """Create `ForwardRobustModel` instance."""
+    """Create `NoTransitionModel` instance."""
 
     def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Propagate data through the model.
