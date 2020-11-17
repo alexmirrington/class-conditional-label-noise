@@ -14,13 +14,15 @@ class AnchorPointEstimator(AbstractEstimator):
         self,
         classifier: nn.Module,
         sample_dataloader: DataLoader,
+        device,
         class_count: int,
         outlier_percentile: float,
         frozen: bool = True,
     ) -> None:
         """Create an `AnchorPointEstimator` instance."""
         super().__init__(class_count)
-        self.transitions = torch.empty((class_count, class_count))
+        self.device = device
+        self.transitions = torch.empty((class_count, class_count)).to(self.device)
 
         self.outlier_percentile = outlier_percentile * 100
         # Update the transition matrix using the multi-class anchor point method
@@ -52,6 +54,7 @@ class AnchorPointEstimator(AbstractEstimator):
             noisy_posteriors = None
             # get matrix of probabilities for each example
             for feats, _ in sample_dataloader:
+                feats = feats.to(self.device)
                 this_noisy_posteriors, _ = classifier(feats)
                 this_noisy_posteriors = this_noisy_posteriors.cpu()
                 if noisy_posteriors is None:
