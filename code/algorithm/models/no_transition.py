@@ -18,17 +18,10 @@ class NoTransitionModel(LabelNoiseRobustModel):
 
         Returns:
         --------
-        `(posteriors, posteriors)`: Since this model does not use a transition matrix, there
+        `(activations, activations)`: Since this model does not use a transition matrix, there
         is nothing distinguishing the noisy and clean posteriors. We return a tuple containing
         both for consistency with the behaviour of other models.
-        If the model is in eval mode, the second `posteriors` is set to `None`.
         """
         # Get backbone output posteriors.
-        posteriors, _ = self.backbone(features)
-
-        # For consistency with Forward and Backward models, if we are training, return the
-        # posteriors also as a second element of the tuple.
-        posteriors2 = None
-        if self.training:
-            posteriors2 = posteriors
-        return posteriors, posteriors2
+        _, activations = self.backbone(features)
+        return activations, activations
