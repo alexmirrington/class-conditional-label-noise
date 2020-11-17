@@ -8,10 +8,7 @@ class FixedEstimator(AbstractEstimator):
     """For use when the transition matrix is given."""
 
     def __init__(
-        self,
-        class_count: int,
-        given_matrix: torch.Tensor,
-        frozen: bool = True,
+        self, class_count: int, given_matrix: torch.Tensor, device: str, frozen: bool = True
     ) -> None:
         """Create a `FixedEstimator` instance."""
         super().__init__(class_count)
