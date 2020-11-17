@@ -104,7 +104,7 @@ def main(config: argparse.Namespace):
         train_data,
         val_data,
         torch.optim.SGD(backbone.parameters(), lr=1e-3),
-        criterion,
+        torch.nn.NLLLoss(),
         loggers,
         config,
     )
@@ -134,7 +134,7 @@ def train(
             labels = labels.to(config.device)
             optimiser.zero_grad()
             clean_activations, noisy_activations = model(feats)
-            loss = criterion(noisy_activations, labels)
+            loss = criterion(torch.log(noisy_activations), labels)
             loss.backward()
 
             optimiser.step()
@@ -168,7 +168,7 @@ def evaluate(
         # Move data to GPU
         feats = feats.to(config.device)
         clean_activations, noisy_activations = model(feats)
-        loss = criterion(noisy_activations, labels)
+        loss = criterion(torch.log(noisy_activations), labels)
         preds = torch.argmax(noisy_activations, dim=-1)
 
         if all_preds is None:
@@ -341,6 +341,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     model_parser = parser.add_argument_group("model")
     model_parser.add_argument(
         "--robust_type",
+        type=RobustModel,
         default=RobustModel.FORWARD,
         choices=list(iter(RobustModel)),
         metavar=str({str(b.value) for b in iter(RobustModel)}),
