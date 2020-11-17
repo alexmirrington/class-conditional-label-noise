@@ -13,9 +13,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
-from config import Backbone, Dataset, Estimator, RobustModel
+from config import Backbone, Dataset, Estimator, LossCorrection
 from datasets import load_data
-from factories import BackboneFactory, EstimatorFactory, ModelFactory
+from factories import BackboneFactory, EstimatorFactory, LossFactory
 from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from sklearn.metrics import accuracy_score
 from termcolor import colored
@@ -90,25 +90,28 @@ def main(config: argparse.Namespace):
             f"Transition matrix to be usd by the Label Noise Robust Model:\n"
             f"{estimator.transitions=}"
         )
-        wandb.run.summary["transitions"] = estimator.transitions.t()
+        if config.wandb:
+            wandb.run.summary["transitions"] = estimator.transitions.t()
 
     # Create model from backbone and estimator
-    model_factory = ModelFactory()
-    model = model_factory.create(backbone, estimator, config)
+    criterion_factory = LossFactory()
+    criterion = criterion_factory.create(estimator, config)
+
+    # Get a new backbone
+    # backbone = backbone_factory.create(config)
 
     # Train and evaluate model
     print(colored("training:", attrs=["bold"]))
-    model = model.to(config.device)
     train(
-        model,
+        backbone,
         train_data,
         val_data,
-        torch.optim.SGD(backbone.parameters(), lr=1e-3),
-        torch.nn.NLLLoss(),
+        torch.optim.Adam(backbone.parameters(), lr=1e-4),
+        criterion,
         loggers,
         config,
     )
-    test(model, test_data, loggers, config)
+    test(backbone, test_data, loggers, config)
 
 
 def train(
@@ -123,8 +126,8 @@ def train(
     """Train a model."""
     dataloader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=0)
     class_count = len(set(dataloader.dataset.tensors[1].tolist()))
-    model.train()
     for epoch in range(config.epochs):
+        model.train()
         for batch, (feats, labels) in enumerate(dataloader):
             # Move data to GPU
             feats = feats.to(config.device)
@@ -133,13 +136,14 @@ def train(
                 labels = F.one_hot(labels, num_classes=class_count).type(torch.float32)
             labels = labels.to(config.device)
             optimiser.zero_grad()
-            clean_activations, noisy_activations = model(feats)
-            loss = criterion(torch.log(noisy_activations), labels)
+            clean_posteriors, clean_activations = model(feats)
+            # TODO Make sure we apply log for NONE case (in new loss class)
+            loss = criterion(clean_posteriors, labels)
             loss.backward()
 
             optimiser.step()
 
-            preds = torch.argmax(noisy_activations, dim=-1).cpu().numpy()
+            preds = torch.argmax(clean_posteriors, dim=-1).cpu().numpy()
             if batch % config.log_step == config.log_step - 1 or batch == len(dataloader) - 1:
                 metrics = {
                     "train/epoch": epoch + batch * dataloader.batch_size / len(dataloader.dataset),
@@ -164,19 +168,20 @@ def evaluate(
     model.eval()
     all_preds = None
     all_labels = None
-    for feats, labels in dataloader:
-        # Move data to GPU
-        feats = feats.to(config.device)
-        clean_activations, noisy_activations = model(feats)
-        loss = criterion(torch.log(noisy_activations), labels)
-        preds = torch.argmax(noisy_activations, dim=-1)
+    with torch.no_grad():
+        for feats, labels in dataloader:
+            # Move data to GPU
+            feats = feats.to(config.device)
+            clean_posteriors, clean_activations = model(feats)
+            loss = criterion(clean_posteriors, labels)
+            preds = torch.argmax(clean_posteriors, dim=-1)
 
-        if all_preds is None:
-            all_preds = preds.cpu().numpy()
-            all_labels = labels.cpu().numpy()
-        else:
-            all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
-            all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+            if all_preds is None:
+                all_preds = preds.cpu().numpy()
+                all_labels = labels.cpu().numpy()
+            else:
+                all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
+                all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
 
     acc = accuracy_score(all_labels, all_preds)
 
@@ -206,18 +211,19 @@ def test(
     model.eval()
     all_preds = None
     all_labels = None
-    for feats, labels in dataloader:
-        # Move data to GPU
-        feats = feats.to(config.device)
-        clean_activations, noisy_activations = model(feats)
-        preds = torch.argmax(clean_activations, dim=-1)
+    with torch.no_grad():
+        for feats, labels in dataloader:
+            # Move data to GPU
+            feats = feats.to(config.device)
+            clean_posteriors, clean_activations = model(feats)
+            preds = torch.argmax(clean_posteriors, dim=-1)
 
-        if all_preds is None:
-            all_preds = preds.cpu().numpy()
-            all_labels = labels.cpu().numpy()
-        else:
-            all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
-            all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+            if all_preds is None:
+                all_preds = preds.cpu().numpy()
+                all_labels = labels.cpu().numpy()
+            else:
+                all_preds = np.concatenate((all_preds, preds.cpu().numpy()))
+                all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
 
     acc = accuracy_score(all_labels, all_preds)
 
@@ -340,12 +346,12 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     )
     model_parser = parser.add_argument_group("model")
     model_parser.add_argument(
-        "--robust_type",
-        type=RobustModel,
-        default=RobustModel.FORWARD,
-        choices=list(iter(RobustModel)),
-        metavar=str({str(b.value) for b in iter(RobustModel)}),
-        help="The type of robust model (which determines how the transition matrix is used).",
+        "--loss_correction",
+        type=LossCorrection,
+        default=LossCorrection.FORWARD,
+        choices=list(iter(LossCorrection)),
+        metavar=str({str(b.value) for b in iter(LossCorrection)}),
+        help="The type of loss correction to use.",
     )
     model_parser.add_argument(
         "--backbone",
@@ -372,7 +378,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     model_parser.add_argument(
         "--anchor_outlier_threshold",
         type=float,
-        default=0.95,
+        default=0.9,
         help="Threshold value to use for outliers when using the anchor point estimator.",
     )
     model_parser.add_argument(
@@ -436,14 +442,6 @@ def parse_args(args: List[str]) -> argparse.Namespace:
 if __name__ == "__main__":
     # Parse arguments
     config = parse_args(sys.argv[1:])
-    # Assert that only no_transition model can have estimator as None
-    if config.estimator == Estimator.NONE and config.robust_type != RobustModel.NO_TRANS:
-        raise ValueError(
-            (
-                f"Model of type '{config.robust_type.value}' requires an estimator which "
-                "is not 'none'."
-            )
-        )
     # Create folders for results if they do not exist
     if not Path(config.results_dir).exists():
         Path(config.results_dir).mkdir()

@@ -14,12 +14,4 @@ class Estimator(Enum):
 
     ANCHOR = "anchor"
     FIXED = "fixed"
-    NONE = "none"
-
-
-class RobustModel(Enum):
-    """Enum outlining the types of robust models, which each use transition matrices differently."""
-
-    FORWARD = "forward"
-    BACKWARD = "backward"
-    NO_TRANS = "no_trans"
+    IDENTITY = "identity"
