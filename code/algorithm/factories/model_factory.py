@@ -3,7 +3,7 @@ import argparse
 
 import torch.nn as nn
 from config import RobustModel
-from models import BackwardRobustModel, ForwardRobustModel, LabelNoiseRobustModel
+from models import BackwardRobustModel, ForwardRobustModel, LabelNoiseRobustModel, NoTransitionModel
 
 # from .backbone_factory import BackboneFactory
 # from .estimator_factory import EstimatorFactory
@@ -23,6 +23,7 @@ class ModelFactory:
         self._factory_methods = {
             RobustModel.FORWARD: self._create_forward,
             RobustModel.BACKWARD: self._create_backward,
+            RobustModel.NO_TRANS: self._create_no_trans,
         }
 
     def create(
@@ -45,6 +46,12 @@ class ModelFactory:
     ) -> LabelNoiseRobustModel:
         """Create a model from a config."""
         return BackwardRobustModel(backbone, estimator)
+
+    def _create_no_trans(
+        self, backbone: nn.Module, estimator: nn.Module, config: argparse.Namespace
+    ) -> LabelNoiseRobustModel:
+        """Create a model from a config."""
+        return NoTransitionModel(backbone, estimator)
 
 
 # TODO: different ways to use transition matrix. ie. forward, backward etc.

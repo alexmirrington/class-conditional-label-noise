@@ -27,6 +27,7 @@ class EstimatorFactory:
             Estimator.FORWARD: self._create_forward,
             Estimator.ANCHOR: self._create_anchor,
             Estimator.FIXED: self._create_fixed,
+            Estimator.NONE: self._create_none,
         }
         self.class_count = class_count
 
@@ -63,7 +64,6 @@ class EstimatorFactory:
         )
 
     def _create_fixed(self, config: argparse.Namespace, *args, **kwargs) -> AbstractEstimator:
-        """Create an `estimator` for a given transition matrix."""
         if config.dataset == Dataset.MNIST_FASHION_05:
             given_matrix = torch.tensor(
                 [[0.5, 0.2, 0.3], [0.3, 0.5, 0.2], [0.2, 0.3, 0.5]], requires_grad=False
@@ -76,3 +76,6 @@ class EstimatorFactory:
             raise ValueError(f"{config.dataset.value} does not have a given transition matrix.")
 
         return FixedEstimator(self.class_count, given_matrix, config.freeze_estimator)
+
+    def _create_none(self, *args, **kwargs) -> None:
+        return None

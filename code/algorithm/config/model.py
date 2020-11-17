@@ -15,6 +15,7 @@ class Estimator(Enum):
     FORWARD = "forward"
     ANCHOR = "anchor"
     FIXED = "fixed"
+    NONE = "none"
 
 
 class RobustModel(Enum):
@@ -22,3 +23,4 @@ class RobustModel(Enum):
 
     FORWARD = "forward"
     BACKWARD = "backward"
+    NO_TRANS = "no_trans"

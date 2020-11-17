@@ -76,9 +76,8 @@ def main(config: argparse.Namespace):
             loggers,
             config,
         )
-    # TODO: if we want to consider any methods which don't use a transition matrix, we will need
-    # to update the way we make these models. eg. just add estimator creation as part of
-    # ModelFactory again, but somehow incorporate the procedure of using the training data
+
+    # Estimator could be None if we don't want to use a transition matrix
     # Create transition matrix
     print(colored("estimator:", attrs=["bold"]))
     estimator_factory = EstimatorFactory(class_count)
@@ -87,7 +86,11 @@ def main(config: argparse.Namespace):
         backbone,
         DataLoader(train_data, batch_size=config.batch_size, shuffle=False, num_workers=0),
     )
-    print(f"{estimator.transitions=}")
+    if estimator is not None:
+        print(
+            f"Transition matrix to be usd by the Label Noise Robust Model:\n"
+            f"{estimator.transitions=}"
+        )
 
     # Create model from backbone and estimator
     model_factory = ModelFactory()
@@ -326,6 +329,14 @@ def parse_args(args: List[str]) -> argparse.Namespace:
 if __name__ == "__main__":
     # Parse arguments
     config = parse_args(sys.argv[1:])
+    # Assert that only no_transition model can have estimator as None
+    if config.estimator == Estimator.NONE and config.robust_type != RobustModel.NO_TRANS:
+        raise ValueError(
+            (
+                f"Model of type '{config.robust_type.value}' requires an estimator which "
+                "is not 'none'."
+            )
+        )
     # Create folders for results if they do not exist
     if not Path(config.results_dir).exists():
         Path(config.results_dir).mkdir()

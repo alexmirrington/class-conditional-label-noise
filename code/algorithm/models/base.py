@@ -12,8 +12,7 @@ class LabelNoiseRobustModel(nn.Module):
         """Create a `LabelNoiseRobustModel` instance."""
         super().__init__()
         self.backbone = backbone
-        # TODO: add option for no estimator/identity estimator
-        self.estimator = estimator
+        self.estimator = estimator  # Could be None for NoTransitionModel
 
     def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Propagate data through the model.
