@@ -21,7 +21,7 @@ class EstimatorFactory:
         self._factory_methods = {
             Estimator.ANCHOR: self._create_anchor,
             Estimator.FIXED: self._create_fixed,
-            Estimator.NONE: self._create_none,
+            Estimator.IDENTITY: self._create_identity,
         }
         self.class_count = class_count
 
@@ -68,5 +68,5 @@ class EstimatorFactory:
 
         return FixedEstimator(self.class_count, given_matrix, config.freeze_estimator)
 
-    def _create_none(self, *args, **kwargs) -> None:
-        return None
+    def _create_identity(self, *args, **kwargs) -> None:
+        raise NotImplementedError()

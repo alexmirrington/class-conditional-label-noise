@@ -1,6 +1,7 @@
 """Classes, enums and functions for run configuration."""
 from .data import Dataset
-from .model import Backbone, Estimator, RobustModel
+from .loss import LossCorrection
+from .model import Backbone, Estimator
 from .preprocessor import Preprocessor
 
 __all__ = [
@@ -8,5 +9,5 @@ __all__ = [
     Backbone.__name__,
     Estimator.__name__,
     Preprocessor.__name__,
-    RobustModel.__name__,
+    LossCorrection.__name__,
 ]
