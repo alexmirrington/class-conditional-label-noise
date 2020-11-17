@@ -66,7 +66,9 @@ class EstimatorFactory:
         else:
             raise ValueError(f"{config.dataset.value} does not have a given transition matrix.")
 
-        return FixedEstimator(self.class_count, given_matrix, config.freeze_estimator)
+        return FixedEstimator(
+            self.class_count, given_matrix, config.device, config.freeze_estimator
+        )
 
     def _create_identity(self, *args, **kwargs) -> None:
         raise NotImplementedError()
