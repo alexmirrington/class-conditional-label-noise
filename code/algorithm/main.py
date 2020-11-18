@@ -19,7 +19,6 @@ from loggers import JSONLLogger, Logger, StreamLogger, WandbLogger
 from sklearn.metrics import accuracy_score
 from termcolor import colored
 from torch.utils.data import DataLoader
-from utils import LabelSmoothingCrossEntropyLoss
 
 from config import Backbone, Dataset, Estimator, LossCorrection
 
@@ -54,10 +53,8 @@ def main(config: argparse.Namespace):
     input_size = tuple(train_data.tensors[0].size()[1:])
     class_count = len(set(train_data.tensors[1].tolist()))
 
-    if config.label_smoothing > 0 and config.label_smoothing < 1:
-        criterion = LabelSmoothingCrossEntropyLoss(config.label_smoothing)
-    else:
-        criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss()
+
     # Create backbone
     print(colored("backbone:", attrs=["bold"]))
     backbone_factory = BackboneFactory(input_size, class_count)

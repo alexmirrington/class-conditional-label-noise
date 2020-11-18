@@ -8,3 +8,4 @@ class LossCorrection(Enum):
     FORWARD = "forward"
     BACKWARD = "backward"
     NONE = "none"
+    SMOOTHING = "smoothing"
