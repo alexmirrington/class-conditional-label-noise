@@ -97,6 +97,10 @@ def main(config: argparse.Namespace):
 
     # Get a new backbone
     backbone = backbone_factory.create(config)
+    optimiser = torch.optim.SGD(backbone.parameters(), lr=config.lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        optimiser, step_size=config.schedule_step, gamma=config.schedule_gamma
+    )
 
     # Train and evaluate model
     print(colored("training:", attrs=["bold"]))
@@ -104,7 +108,9 @@ def main(config: argparse.Namespace):
         backbone,
         train_data,
         val_data,
-        torch.optim.SGD(backbone.parameters(), lr=config.lr, momentum=0.9, weight_decay=1e-4),
+        test_data,
+        optimiser,
+        scheduler,
         criterion,
         loggers,
         config,
@@ -116,7 +122,9 @@ def train(
     model: torch.nn.Module,
     train_data: torch.utils.data.Dataset,
     val_data: torch.utils.data.Dataset,
+    test_data: torch.utils.data.Dataset,
     optimiser: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler._LRScheduler,
     criterion: Optional[Callable[..., torch.Tensor]],
     loggers: Iterable[Logger],
     config: argparse.Namespace,
@@ -145,12 +153,15 @@ def train(
             if batch % config.log_step == config.log_step - 1 or batch == len(dataloader) - 1:
                 metrics = {
                     "train/epoch": epoch + batch * dataloader.batch_size / len(dataloader.dataset),
+                    "train/lr": scheduler.get_last_lr()[0],
                     "train/loss": loss.item(),
                     "train/accuracy": accuracy_score(labels.cpu().numpy(), preds),
                 }
                 for logger in loggers:
                     logger(metrics)
         evaluate(model, epoch + 1, val_data, criterion, loggers, config)
+        test(model, test_data, loggers, config)
+        scheduler.step()
 
 
 def evaluate(
@@ -391,6 +402,18 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         type=float,
         default=1e-2,
         help="The learning rate to use when training.",
+    )
+    model_parser.add_argument(
+        "--schedule_step",
+        type=int,
+        default=128,
+        help="The number of epochs to decrease the learning rate after.",
+    )
+    model_parser.add_argument(
+        "--schedule_gamma",
+        type=int,
+        default=0.5,
+        help="The step scheduler multiplier.",
     )
     model_parser.add_argument(
         "--backbone_pretrain_epochs",
