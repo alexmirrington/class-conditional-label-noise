@@ -1,0 +1,30 @@
+program: code/algorithm/main.py
+method: grid
+project: "class-conditional-label-noise"
+name: "CIFAR SimpleCNN Forward"
+description: "Sweep for the simple_cnn model with forward loss correction on the CIFAR dataset."
+parameters:
+  dataset:
+    value: "cifar"
+  backbone:
+    value: "simple_cnn"
+  loss_correction:
+    value: "forward"
+  estimator:
+    value: "anchor"
+  lr:
+    value: 0.01
+  backbone_pretrain_epochs:
+    value: 64
+  epochs:
+    value: 192
+  anchor_outlier_threshold:
+    value: 1.0
+  seed:
+    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--wandb"
+  - ${args}
