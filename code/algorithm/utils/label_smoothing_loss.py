@@ -1,8 +1,9 @@
 """An implementation of Cross Entropy Loss with label smoothing."""
+import torch
 import torch.nn as nn
 
 
-class LabelSmoothingCrossEntropyLoss(nn.Module):
+class LabelSmoothingNLLLoss(nn.Module):
     """Class to calculate cross entropy loss with label smoothing.
 
     Implementation predominantly based off wangleiofficial's contribution at
@@ -49,7 +50,7 @@ class LabelSmoothingCrossEntropyLoss(nn.Module):
     def forward(self, preds, targets):
         """Return the cross entropy loss for the smoothed labels."""
         num_classes = preds.size()[-1]
-        log_preds = nn.functional.log_softmax(preds, dim=-1)
+        log_preds = torch.log(preds)
         loss = self._reduce_loss(-log_preds.sum(dim=-1), self.reduction)
         nll = nn.functional.nll_loss(log_preds, targets, reduction=self.reduction)
         return self._linear_combination(loss / num_classes, nll, self.smooth_val)
