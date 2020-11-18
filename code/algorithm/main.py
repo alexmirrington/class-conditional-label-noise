@@ -411,8 +411,8 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     )
     model_parser.add_argument(
         "--schedule_gamma",
-        type=int,
-        default=0.5,
+        type=float,
+        default=0.1,
         help="The step scheduler multiplier.",
     )
     model_parser.add_argument(
