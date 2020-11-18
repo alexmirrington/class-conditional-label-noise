@@ -39,7 +39,9 @@ class BackboneFactory:
         return MLPBackbone(flat_input_size, self.class_count).to(config.device)
 
     def _create_resnet18(self, config: argparse.Namespace) -> AbstractBackbone:
-        flat_input_size = 1
-        for size in self.input_size:
-            flat_input_size *= size
-        return Resnet18Backbone(flat_input_size, self.class_count).to(config.device)
+        channels = self.input_size[0]
+
+        return Resnet18Backbone(
+            channels,
+            self.class_count,
+        ).to(config.device)
