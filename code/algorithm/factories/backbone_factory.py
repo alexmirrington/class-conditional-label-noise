@@ -2,8 +2,9 @@
 import argparse
 from typing import Tuple
 
-from config import Backbone
 from models.backbones import AbstractBackbone, MLPBackbone, Resnet18Backbone
+
+from config import Backbone
 
 
 class BackboneFactory:
@@ -36,7 +37,6 @@ class BackboneFactory:
         for size in self.input_size:
             flat_input_size *= size
         return MLPBackbone(flat_input_size, self.class_count).to(config.device)
-
 
     def _create_resnet18(self, config: argparse.Namespace) -> AbstractBackbone:
         flat_input_size = 1

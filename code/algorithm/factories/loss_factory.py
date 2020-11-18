@@ -3,10 +3,11 @@ import argparse
 
 import torch
 import torch.nn as nn
-from config import LossCorrection
 from utils.backward_loss import BackwardNLLLoss
 from utils.forward_loss import ForwardNLLLoss
 from utils.uncorrected_loss import UncorrectedNLLLoss
+
+from config import LossCorrection
 
 
 class LossFactory:
