@@ -2,7 +2,7 @@
 import argparse
 from typing import Tuple
 
-from models.backbones import AbstractBackbone, MLPBackbone, Resnet18Backbone
+from models.backbones import AbstractBackbone, MLPBackbone, Resnet18Backbone, SimpleCNNBackbone
 
 from config import Backbone
 
@@ -21,6 +21,7 @@ class BackboneFactory:
         self._factory_methods = {
             Backbone.MLP: self._create_mlp,
             Backbone.RESNET18: self._create_resnet18,
+            Backbone.SIMPLE_CNN: self._create_simple_cnn,
         }
         self.input_size = input_size
         self.class_count = class_count
@@ -43,5 +44,12 @@ class BackboneFactory:
 
         return Resnet18Backbone(
             channels,
+            self.class_count,
+        ).to(config.device)
+
+    def _create_simple_cnn(self, config: argparse.Namespace) -> AbstractBackbone:
+
+        return SimpleCNNBackbone(
+            self.input_size,
             self.class_count,
         ).to(config.device)
