@@ -7,6 +7,7 @@ class Backbone(Enum):
 
     MLP = "mlp"
     RESNET18 = "resnet18"
+    SIMPLE_CNN = "simple_cnn"
 
 
 class Estimator(Enum):

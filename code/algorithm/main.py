@@ -104,7 +104,7 @@ def main(config: argparse.Namespace):
         backbone,
         train_data,
         val_data,
-        torch.optim.SGD(backbone.parameters(), lr=config.lr),
+        torch.optim.SGD(backbone.parameters(), lr=config.lr, momentum=0.9, weight_decay=1e-4),
         criterion,
         loggers,
         config,
