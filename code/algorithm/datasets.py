@@ -56,6 +56,16 @@ def load_data(
     test_feats = torch.tensor(test_feats, dtype=torch.float32)
     test_labels = torch.tensor(test_labels, dtype=torch.long)
 
+    if dataset in [Dataset.MNIST_FASHION_05, Dataset.MNIST_FASHION_06]:
+        train_feats = torch.unsqueeze(train_feats, 1)
+        val_feats = torch.unsqueeze(val_feats, 1)
+        test_feats = torch.unsqueeze(test_feats, 1)
+    else:
+        # Dataset is CIFAR. Comes packaged as (num_samples, dim, dim, channels).
+        # We change this to (num_samples, channels, dim, dim).
+        train_feats = train_feats.permute(0, 3, 1, 2)
+        val_feats = val_feats.permute(0, 3, 1, 2)
+        test_feats = test_feats.permute(0, 3, 1, 2)
     return (
         TensorDataset(train_feats, train_labels),
         TensorDataset(val_feats, val_labels),
