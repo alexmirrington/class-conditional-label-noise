@@ -4,8 +4,9 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from config import Dataset
 from torch.utils.data import TensorDataset
+
+from config import Dataset
 
 
 def load_data(

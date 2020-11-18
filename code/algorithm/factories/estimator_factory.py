@@ -3,9 +3,10 @@ import argparse
 
 import torch
 import torch.nn as nn
-from config import Dataset, Estimator
 from models.estimators import AbstractEstimator, AnchorPointEstimator, FixedEstimator
 from torch.utils.data import DataLoader
+
+from config import Dataset, Estimator
 
 
 class EstimatorFactory:
@@ -52,7 +53,7 @@ class EstimatorFactory:
             config.device,
             self.class_count,
             config.anchor_outlier_threshold,
-            config.freeze_estimator
+            config.freeze_estimator,
         )
 
     def _create_fixed(self, config: argparse.Namespace, *args, **kwargs) -> AbstractEstimator:
