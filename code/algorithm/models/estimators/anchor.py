@@ -65,9 +65,10 @@ class AnchorPointEstimator(AbstractEstimator):
 
             for i in range(self.class_count):
                 if self.outlier_percentile > 0 and self.outlier_percentile < 100:
-                    # TODO: reference source code
-                    eta_thresh = np.percentile(noisy_posteriors[:, i], 90, interpolation="higher")
-                    # eta_thresh = 0.5
+                    # Inspired by the implementation in https://github.com/giorgiop/loss-correction
+                    eta_thresh = np.percentile(
+                        noisy_posteriors[:, i], self.outlier_percentile, interpolation="higher"
+                    )
                     robust_posteriors = noisy_posteriors[
                         torch.where(noisy_posteriors[:, i] < eta_thresh)
                     ]
