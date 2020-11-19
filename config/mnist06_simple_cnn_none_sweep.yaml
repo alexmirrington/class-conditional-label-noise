@@ -1,0 +1,28 @@
+program: code/algorithm/main.py
+method: grid
+project: "class-conditional-label-noise"
+name: "MNIST 06 SimpleCNN None"
+description: "Sweep for the simple_cnn model with no loss correction on the MNIST06 dataset."
+parameters:
+  dataset:
+    value: "mnist_fashion_06"
+  backbone:
+    value: "simple_cnn"
+  loss_correction:
+    value: "none"
+  estimator:
+    value: "fixed"
+  lr:
+    value: 0.001
+  backbone_pretrain_epochs:
+    value: 0
+  epochs:
+    value: 128
+  seed:
+    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--wandb"
+  - ${args}

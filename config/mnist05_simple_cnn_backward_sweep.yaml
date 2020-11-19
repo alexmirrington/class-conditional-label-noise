@@ -1,0 +1,28 @@
+program: code/algorithm/main.py
+method: grid
+project: "class-conditional-label-noise"
+name: "MNIST 05 SimpleCNN Backward"
+description: "Sweep for the simple_cnn model with backward loss correction on the MNIST05 dataset."
+parameters:
+  dataset:
+    value: "mnist_fashion_05"
+  backbone:
+    value: "simple_cnn"
+  loss_correction:
+    value: "backward"
+  estimator:
+    value: "fixed"
+  lr:
+    value: 0.0001
+  backbone_pretrain_epochs:
+    value: 0
+  epochs:
+    value: 128
+  seed:
+    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--wandb"
+  - ${args}
