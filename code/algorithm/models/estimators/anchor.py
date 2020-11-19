@@ -65,7 +65,7 @@ class AnchorPointEstimator(AbstractEstimator):
 
             for i in range(self.class_count):
                 if self.outlier_percentile > 0 and self.outlier_percentile < 100:
-                    # TODO: reference source code
+                    # Inspired by the implementation in https://github.com/giorgiop/loss-correction
                     eta_thresh = np.percentile(
                         noisy_posteriors[:, i], self.outlier_percentile, interpolation="higher"
                     )

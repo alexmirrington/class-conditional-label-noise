@@ -7,7 +7,7 @@ parameters:
   dataset:
     values: ["mnist_fashion_05", "mnist_fashion_06"]
   backbone:
-    values: ["mlp", simple_cnn"]
+    values: ["simple_cnn"]
   label_smoothing:
     values: [0.1, 0.2, 0.5]
   loss_correction:
