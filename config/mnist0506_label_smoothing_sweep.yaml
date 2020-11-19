@@ -1,0 +1,30 @@
+program: code/algorithm/main.py
+method: grid
+project: "class-conditional-label-noise"
+name: "Label smoothing sweep"
+description: "Sweep over both models using indicaitve label smoothing values with no loss correction on the MNIST05 and MNIST06 datasets."
+parameters:
+  dataset:
+    values: ["mnist_fashion_05", "mnist_fashion_06"]
+  backbone:
+    values: ["mlp", simple_cnn"]
+  label_smoothing:
+    values: [0.1, 0.2, 0.5]
+  loss_correction:
+    value: "smoothing"
+  estimator:
+    value: "fixed"
+  lr:
+    value: 0.001
+  backbone_pretrain_epochs:
+    value: 0
+  epochs:
+    value: 128
+  seed:
+    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--wandb"
+  - ${args}
