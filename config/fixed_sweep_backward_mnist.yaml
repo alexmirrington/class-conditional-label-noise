@@ -1,0 +1,26 @@
+program: code/algorithm/main.py
+method: grid
+project: "class-conditional-label-noise"
+name: "Fixed transition sweep backward MLP"
+description: "Grid search over MNIST datasets and backward loss correction method."
+parameters:
+  seed:
+    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  loss_correction:
+    value: "backward"
+  dataset:
+    values: ["mnist_fashion_05", "mnist_fashion_06"]
+  lr:
+    value: 0.0001
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--wandb"
+  - "--estimator"
+  - "fixed"
+  - "--backbone_pretrain_epochs"
+  - 0
+  - "--epochs"
+  - 128
+  - ${args}
