@@ -1,6 +1,12 @@
 # Learning Under Class-conditional Label Noise
 
 <p align="center">
+  <a href="https://wandb.ai/alexmirrington/class-conditional-label-noise">
+    <img
+      src="https://img.shields.io/static/v1?label=visualise&message=wandb&color=yellow&logo=Weights%20%26%20Biases"
+      alt="Visualise using Weights & Biases"
+    />
+  </a>
   <a href="https://github.com/alexmirrington/class-conditional-label-noise/actions?query=workflow%3Astyle">
     <img
       src="https://github.com/alexmirrington/class-conditional-label-noise/workflows/style/badge.svg"
